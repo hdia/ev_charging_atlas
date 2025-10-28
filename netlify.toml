@@ -1,0 +1,3 @@
+[build]
+  command = ""            # no build step, the HTML is committed
+  publish = "outputs"     # serve the outputs folder
