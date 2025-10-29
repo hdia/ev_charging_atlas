@@ -25,6 +25,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add outputs/*.html data/processed/*.csv || true
+          git add outputs/index.html data/processed/*.csv || true
           git commit -m "Auto rebuild map" || echo "No changes"
           git push

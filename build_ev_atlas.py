@@ -45,7 +45,7 @@ ROUTE_PROXIMITY_KM = 5.0
 # Route line style
 ROUTE_LINE_WEIGHT = 3.5  # thinner than before (was 5)
 
-OUTPUT_HTML = Path("outputs/ev_charging_atlas.html")
+OUTPUT_HTML = Path("outputs/index.html")
 BACKUP_CSV = Path("data/processed/ocm_australia_backup.csv")
 LATEST_SNAPSHOT_CSV = Path("data/processed/ocm_australia_latest.csv")
 
@@ -675,9 +675,6 @@ def main():
     print(">> Building map...")
     build_map(df, last_refresh, next_refresh)
     print(">> Done. Upload outputs/ev_charging_atlas.html to Netlify.")
-
-import shutil
-shutil.copy(OUTPUT_HTML, OUTPUT_HTML.parent / "index.html")
 
 if __name__ == "__main__":
     main()
