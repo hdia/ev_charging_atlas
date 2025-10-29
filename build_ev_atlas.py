@@ -674,7 +674,34 @@ def main():
 
     print(">> Building map...")
     build_map(df, last_refresh, next_refresh)
-    print(">> Done. Upload outputs/ev_charging_atlas.html to Netlify.")
+    # Ensure Netlify root file timestamp updates
+    try:
+        atlas_file = Path("outputs/index.html")
+        os.utime(atlas_file, None)
+        print(f">> Updated timestamp for {atlas_file}")
+    except Exception as e:
+        print("!! Could not update index.html timestamp:", e)
+
+    print(">> Done. Upload outputs/index.html to Netlify.")
+
+
+"""
+    # --- Finalise and save ---
+    # Make sure index.html is always written for Netlify
+    try:
+        import shutil
+        OUTPUT_DIR = Path("outputs")
+        atlas_file = OUTPUT_DIR / "index.html"
+        if not atlas_file.exists():
+            print(">> index.html not found, creating it now...")
+        else:
+            print(">> Replacing existing index.html...")
+        shutil.copy(atlas_file, OUTPUT_DIR / "index.html")
+        print(f">> Map copied to {OUTPUT_DIR / 'index.html'}")
+    except Exception as e:
+        print("!! Could not copy map to index.html:", e)
+    print(">> Done. Upload outputs/index.html to Netlify.")
+"""
 
 if __name__ == "__main__":
     main()
