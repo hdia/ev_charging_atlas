@@ -676,5 +676,8 @@ def main():
     build_map(df, last_refresh, next_refresh)
     print(">> Done. Upload outputs/ev_charging_atlas.html to Netlify.")
 
+import shutil
+shutil.copy(OUTPUT_HTML, OUTPUT_HTML.parent / "index.html")
+
 if __name__ == "__main__":
     main()
