@@ -28,8 +28,7 @@ jobs:
           git fetch origin main
           git checkout main
           git pull
-          # Force timestamp update so Git always sees change
-          touch outputs/index.html
-          git add -A outputs/index.html data/processed/*.csv || true
+          # Force update index.html and commit every time
+          git add -f outputs/index.html
           git commit -m "Auto rebuild map $(date)" --allow-empty
           git push origin main
