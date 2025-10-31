@@ -1,60 +1,60 @@
-# Australian EV Charging Atlas
+# Australian EV Charging Monitor
 
-A live, auto-updating map of electric vehicle chargers across Australia, built using data from the **Open Charge Map API**.
-
----
-
-## 🧭 Overview
-This repository rebuilds and redeploys the map every hour using GitHub Actions and Netlify.  
-No local setup required once connected — GitHub handles rebuilds, and Netlify hosts the static HTML.
+A live map of electric vehicle chargers across Australia, updated automatically every 24 hours.  
+Built from open data using the **[Open Charge Map API](https://openchargemap.org/)** and **[OpenStreetMap OSRM](https://project-osrm.org/)**.
 
 ---
 
-## ⚙️ Setup Instructions
+## ⚙️ Setup & Hosting
 
-### 1. Create GitHub repository
-Create a new repo named `ev_charging_atlas` (public or private).
-
-### 2. Add the files
-Include:
-- `build_ev_atlas.py`
+### 1. Repository setup
+Clone or fork this repository, ensuring it contains:
+- `20251031_build_ev_atlas_v6.py`
 - `requirements.txt`
-- `netlify.toml`
 - `.github/workflows/rebuild.yml`
-- `.env.example` (for local testing)
+- `data/` and `outputs/` folders
 
-### 3. Push to GitHub
-From your local terminal:
-```bash
-git init
-git remote add origin https://github.com/<your-username>/ev_charging_atlas.git
-git add .
-git commit -m "Initial upload"
-git branch -M main
-git push -u origin main
+### 2. Automatic rebuild
+GitHub Actions (see `.github/workflows/rebuild.yml`) runs the Python script every 24 hours, regenerates the map, and commits `outputs/index.html`.
+
+You can trigger it manually via:
+```
+Actions → Rebuild → Run workflow
 ```
 
-### 4. Add your OCM API key
-In GitHub → **Settings → Secrets and variables → Actions**,  
-create a new secret:
-```
-Name: OCM_API_KEY
-Value: your_actual_key
-```
+### 3. Hosting on GitHub Pages
+In your repository:
+1. Go to **Settings → Pages**
+2. Under “Build and deployment”, choose:
+   - **Source:** Deploy from branch  
+   - **Branch:** `main` → `/outputs`
+3. Save — your site will be available at  
+   `https://<your-username>.github.io/ev_charging_monitor/`
 
-### 5. Deploy on Netlify
-- Go to [Netlify](https://www.netlify.com/)
-- Create a new site from Git, link this repository
-- Set **Publish directory** to `outputs`
-- Save and deploy
+---
 
-### 6. Automatic hourly updates
-The GitHub Action runs every hour (UTC), regenerates the map, and commits the new HTML.  
-Netlify detects the change and auto-deploys.
+## 🗺️ Data Notes
+
+- Data source: [Open Charge Map API](https://openchargemap.org/)
+- Routing: [OSRM](https://project-osrm.org/)
+- Geocoding: [OpenStreetMap Nominatim](https://nominatim.org/)
+- These are open-data services with voluntary reporting; some chargers may not be listed or fully up to date.
+
+---
+
+## 🧩 Requirements
+
+```
+folium
+branca
+python-dotenv
+pandas
+numpy
+requests
+```
 
 ---
 
 ## 📝 Credits
-- Data: [Open Charge Map API](https://openchargemap.org/)
-- Routing: [OSRM](https://project-osrm.org/)
-- Geocoding: [OpenStreetMap Nominatim](https://nominatim.org/)
+Developed at Swinburne University of Technology  
+Data © contributors to OpenStreetMap and Open Charge Map

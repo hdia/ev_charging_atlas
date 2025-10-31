@@ -6,7 +6,7 @@
 #[main 7f3abc1] Local update 2025-10-29 19:45:23
 #>> git push origin main
 #✅ Done. Changes synced to GitHub.
-
+# if you get a conflict message, use git pull --rebase origin main
 
 import os
 import subprocess

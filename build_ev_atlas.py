@@ -43,20 +43,23 @@ FAST_KW = 50.0
 ROUTE_PROXIMITY_KM = 5.0
 
 # Route line style
-ROUTE_LINE_WEIGHT = 3.5  # thinner than before (was 5)
+ROUTE_LINE_WEIGHT = 2.0  # thinner than before (was 5)
 
 OUTPUT_HTML = Path("outputs/index.html")
 BACKUP_CSV = Path("data/processed/ocm_australia_backup.csv")
 LATEST_SNAPSHOT_CSV = Path("data/processed/ocm_australia_latest.csv")
 
 # Map start and bounds for Australia
-MAP_START = {"lat": -25.0, "lon": 133.0, "zoom": 4}
-AUS_BOUNDS = [[-44.0, 112.0], [-10.0, 154.0]]  # SW to NE corners
+MAP_START = {"lat": -28.0, "lon": 140.0, "zoom": 5}
+#MAP_START = {"lat": -25.0, "lon": 140.0, "zoom": 5}
+AUS_BOUNDS = [[-44.0, 110.0], [-10.0, 152.0]]  # SW to NE corners
+#AUS_BOUNDS = [[-44.0, 112.0], [-10.0, 154.0]]  # SW to NE corners
 
 FONT_FAMILY = "Inter, Arial, sans-serif"
 BOX_BG = "rgba(255,255,255,0.78)"
-TITLE_PLACEHOLDER = "Australian EV Charging Atlas"
-SUBTITLE_PLACEHOLDER = "Your credit line here"
+TITLE_PLACEHOLDER = "Australian EV Infrastructure Monitor"
+SUBTITLE_PLACEHOLDER = "Mapping the nation’s electric vehicle charging network"
+THIRD_TITLE_PLACEHOLDER = "Swinburne University of Technology. Data snapshot from the Open Charge Map API"
 HOWTO_FAST_LINE = f"Fast chargers are defined here as sites with ≥ {int(FAST_KW)} kW."
 
 COL_STATUS = {"operational":"#16a34a","partial":"#f59e0b","down":"#ef4444","unknown":"#6b7280"}
@@ -67,9 +70,9 @@ COL_PRIVATE = "#8b5cf6"
 # Route planner panel positioning knobs:
 # If ROUTE_PANEL_AUTO is True, the panel will snap under the Layer Control.
 # If False, it uses ROUTE_PANEL_TOP_PX/RIGHT_PX as fixed offsets from top-right.
-ROUTE_PANEL_AUTO = True
-ROUTE_PANEL_TOP_PX = 260
-ROUTE_PANEL_RIGHT_PX = 12
+ROUTE_PANEL_AUTO = False
+ROUTE_PANEL_TOP_PX = 210
+ROUTE_PANEL_RIGHT_PX = 10
 
 # ============================================================
 # 2) UI helpers
@@ -317,18 +320,32 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
 
     def pct(n): return f"{(100.0 * n / tot_sites):.0f}%" if tot_sites > 0 else "0%"
 
+
     # Per-state counts
     state_counts = df["state_abbrev"].value_counts().to_dict()
+
+    # Normalise duplicates and unknowns
+    merged_counts = {}
+    for k, v in state_counts.items():
+        key = k.strip().upper()
+        # If it looks like WA‎, wa, or has stray unicode, merge under WA
+        if key.startswith("WA"):
+            key = "WA"
+        elif key not in ORDER_STATES:
+            key = "UNK"
+        merged_counts[key] = merged_counts.get(key, 0) + v
+
     # Build ordered string
     parts = []
     for abbr in ORDER_STATES:
-        if abbr in state_counts:
-            parts.append(f"{abbr} {thousands(state_counts[abbr])}")
-    # Add any others as 'UNK' if present
-    for k, v in state_counts.items():
-        if k not in ORDER_STATES:
-            parts.append(f"{k} {thousands(v)}")
+        if abbr in merged_counts:
+            parts.append(f"{abbr} <b>{thousands(merged_counts[abbr])}</b>")
+    # Add 'UNK' if still present
+    if "UNK" in merged_counts:
+        parts.append(f"Unkown <b>{thousands(merged_counts['UNK'])}</b>")
+
     by_state_line = " · ".join(parts) if parts else "By state: n/a"
+
 
     df_public = df[df["usage_simple"] == "public"].copy()
     df_private = df[df["usage_simple"] == "private"].copy()
@@ -347,10 +364,10 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
     inject_label_css(m)
 
     # Fit to Australia bounds to open with national coverage visible
-    try:
-        m.fit_bounds(AUS_BOUNDS)
-    except Exception:
-        pass
+#   try:
+#       m.fit_bounds(AUS_BOUNDS)
+#   except Exception:
+#       pass
 
     cluster_all = MarkerCluster(name="Charger Clusters", show=True, icon_create_function=sum_icon_create_function_js())
     m.add_child(cluster_all)
@@ -384,8 +401,9 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
     # Title box
     title_html = (
         f'<div style="color:#111;font-size:20px; font-weight:700; margin-bottom:4px;">{TITLE_PLACEHOLDER}</div>'
-        f'<div style="color:#111;font-size:12px; font-weight:500; margin-bottom:2px;">{SUBTITLE_PLACEHOLDER}</div>'
-        f'<div style="color:#111;font-size:12px; font-weight:400;">AU-wide live snapshot</div>'
+        f'<div style="color:#111;font-size:14px; font-weight:500; margin-bottom:2px;">{SUBTITLE_PLACEHOLDER}</div>'
+        f'<div style="color:#111;font-size:12px; font-weight:400;">{THIRD_TITLE_PLACEHOLDER}</div>'
+#       f'<div style="color:#111;font-size:12px; font-weight:400;">AU-wide live snapshot</div>'
     )
     m.add_child(build_transparent_box("box-title", title_html, position="topleft", offsets=(50,10)))
 
@@ -396,12 +414,16 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
     dot_u = color_dot_hex(COL_STATUS["unknown"])
 
     bullets = [
+#       f"Data source: <b>Open Charge Map API</b>" ,
+        f'Data source: <b><a href="https://openchargemap.org/" target="_blank">Open Charge Map API</a></b>',
         f"Total sites: <b>{thousands(tot_sites)}</b>",
-        f"{dot_g}Operational: <b>{thousands(n_oper)}</b> ({pct(n_oper)})",
-        f"{dot_o}Partial: <b>{thousands(n_partial)}</b> ({pct(n_partial)}) · {dot_r}Down: <b>{thousands(n_down)}</b> ({pct(n_down)})",
-        f"{dot_u}Unknown status: <b>{thousands(n_unknown)}</b> ({pct(n_unknown)})",
-        f"By state: {by_state_line}",
-        f"Last refresh: <b>{last_refresh}</b> · Next refresh: <b>{next_refresh}</b>"
+        f"{by_state_line}",
+        f"{dot_g} Operational: <b>{thousands(n_oper)}</b> ({pct(n_oper)})",
+        f"{dot_o} Partial: <b>{thousands(n_partial)}</b> ({pct(n_partial)})",
+        f"{dot_r} Down: <b>{thousands(n_down)}</b> ({pct(n_down)})",
+        f"{dot_u} Unknown status: <b>{thousands(n_unknown)}</b> ({pct(n_unknown)})",
+        f"Last data pull: <b>{last_refresh}</b>",
+        f"Next data pull: <b>{next_refresh}</b>"
     ]
     snapshot_html = (
         '<div style="color:#111; font-weight:600; font-size:12px; margin-bottom:6px;">'
@@ -412,19 +434,26 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
     m.add_child(build_transparent_box("box-snapshot", snapshot_html, position="bottomleft", offsets=(10,48), width_px=520))
 
     # How-to box
+
     howto_bullets = [
-        "Cluster badge shows the sum of counts inside each cluster at this zoom.",
-        "Dots at highest zoom show site-level charging stations; popups show values at snapshot time.",
-        HOWTO_FAST_LINE,
-        "Use the search box to plot a route and highlight chargers within 5 km of that route.",
-        "Data source: Open Charge Map API. Counts reflect current listings, not guaranteed uptime."
-    ]
+    "Snapshot data obtained from the Open Charge Map (OCM) API at the time shown.",
+    "Reporting to OCM is voluntary - some operators may not list all of their chargers or update them regularly.",
+    'Search & routing use <a href="https://nominatim.openstreetmap.org/" target="_blank">Nominatim</a> & <a href="https://project-osrm.org/" target="_blank">OSRM</a> - lightweight open-data tools that may not match commercial map precision.',
+    "Routes and charging station proximity around each route are approximate.",
+    "Cluster badge shows the sum of counts inside each cluster at this zoom.",
+    "Dots at highest zoom show site-level charging stations.",
+    "Popups show values at snapshot time.",
+    HOWTO_FAST_LINE,
+    "Charging station availability reflects current data in OCM API at the time of retrieval.",
+    "Charger status and uptime can change – always confirm current availability in your network’s app or live sources.",
+]
+
     howto_html = (
         '<div style="color:#111; font-weight:600; font-size:12px; margin-bottom:6px;">How to read this map</div>'
         '<ul style="margin:3px 0 0 0; padding-left: 18px;">'
         '<li>' + "</li><li>".join(howto_bullets) + "</li></ul>"
     )
-    m.add_child(build_transparent_box("box-howto", howto_html, position="bottomright", offsets=(12,48), width_px=520))
+    m.add_child(build_transparent_box("box-howto", howto_html, position="bottomright", offsets=(12,48), width_px=675))
 
     # ---- Route planner UI + JS ----
     points = [{
@@ -443,13 +472,14 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
     panel_html_only = f"""
     <div id="route-search" style="position: fixed; z-index:100001; top: {ROUTE_PANEL_TOP_PX}px; right: {ROUTE_PANEL_RIGHT_PX}px;
       background:RGBA(255,255,255,0.78); padding:10px 12px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.2);
-      font-family:Inter, Arial, sans-serif; font-size:12px; color:#111; width: 320px;">
-      <div style="font-weight:600; margin-bottom:6px;">Route planner</div>
+      font-family:Inter, Arial, sans-serif; font-size:12px; color:#111; width: 450px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:6px;">Route planner</div>
+               <div style="font-size:11.5px; color:#333; margin-top:6px;"> Use this box to plot a route and highlight chargers within {ROUTE_PROXIMITY_KM:.1f} km.  </div> <br>
       <label>Origin</label>
-      <input id="origin-input" type="text" placeholder="e.g. Brisbane City QLD" list="origin-list" style="width:100%; margin-bottom:6px;" />
+      <input id="origin-input" type="text" placeholder="101 Collins Street, Melbourne" list="origin-list" style="width:100%; margin-bottom:6px;" />
       <datalist id="origin-list"></datalist>
       <label>Destination</label>
-      <input id="dest-input" type="text" placeholder="e.g. Canberra ACT" list="dest-list" style="width:100%; margin-bottom:6px;" />
+      <input id="dest-input" type="text" placeholder="601 Hay Street, Perth" list="dest-list" style="width:100%; margin-bottom:6px;" />
       <datalist id="dest-list"></datalist>
       <div style="display:flex; gap:8px; margin-top:6px;">
         <button id="btn-find" style="flex:1; padding:6px 8px;">Find Route</button>
@@ -534,9 +564,32 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
           const resp = await fetch(url, {{ headers: {{ 'Accept': 'application/json' }} }});
           if (!resp.ok) throw new Error('HTTP ' + resp.status);
           const data = await resp.json();
-          const items = data.map(d => ({{ label: d.display_name, lat: parseFloat(d.lat), lon: parseFloat(d.lon) }}));
-          geoCache.set(key, items);
-          return items;
+
+const items = data.map(d => {{
+    const parts = d.display_name.split(',').map(p => p.trim());
+    const filtered = parts.filter(p => !/Australia/i.test(p) && !/^\d{{4}}$/.test(p));
+    const label = filtered.slice(0, 3).join(', ');
+    return {{
+        label: label,
+        lat: parseFloat(d.lat),
+        lon: parseFloat(d.lon)
+    }};
+}});
+
+// Deduplicate by label (keep first occurrence)
+const unique = [];
+const seen = new Set();
+for (const it of items) {{
+    if (!seen.has(it.label)) {{
+        seen.add(it.label);
+        unique.push(it);
+    }}
+}}
+
+geoCache.set(key, unique);
+return unique;
+
+
         }} catch(e) {{ console.warn('Nominatim error', e); return []; }}
       }}
       function populateDatalist(id, items) {{
@@ -574,12 +627,15 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
 
           const url = `https://router.project-osrm.org/route/v1/driving/${{o.lon}},${{o.lat}};${{d.lon}},${{d.lat}}?overview=full&geometries=geojson`;
           let geo = null;
+          let totalKm = 0;
           try {{
             const resp = await fetch(url);
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
             if (!data.routes || !data.routes.length) throw new Error('No route');
-            geo = data.routes[0].geometry;
+            const route = data.routes[0];
+            geo = route.geometry;
+            totalKm = route.distance ? (route.distance / 1000.0) : 0;
           }} catch(e) {{
             console.warn('OSRM error', e);
             if (msg) msg.textContent = 'Route unavailable. Try a nearby suburb or major city.';
@@ -610,9 +666,74 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
             nearHeat = L.heatLayer(nearPts, {{ radius: 18, blur: 22, maxZoom: 9, minOpacity: 0.25 }}).addTo(mapRef);
           }}
 
-          if (msg) msg.textContent = `Found route. Chargers within ${ROUTE_PROXIMITY_KM:.1f} km highlighted.`;
-        }}
+          // --- Detect longest gap between nearby chargers along route (enhanced) ---
+          let chargerCoords = [];
+          for (let i = 0; i < coords.length; i++) {{
+            const [lon, lat] = coords[i];
+            const d = minDistKm(lat, lon, nearPts.map(p => [p[1], p[0]]));
+            if (d <= 5) chargerCoords.push([lat, lon]);
+          }}
 
+          let maxGap = 0;
+          if (chargerCoords.length >= 2) {{
+            for (let i = 1; i < chargerCoords.length; i++) {{
+              const [lat1, lon1] = chargerCoords[i - 1];
+              const [lat2, lon2] = chargerCoords[i];
+              const segKm = haversineKm(lat1, lon1, lat2, lon2);
+              maxGap = Math.max(maxGap, segKm);
+            }}
+          }} else if (chargerCoords.length <= 1) {{
+            // If zero or one charger found, treat entire route as unserved
+            maxGap = totalKm;
+          }}
+
+// --- Highlight all long gaps (not just the longest one) ---
+if (maxGap > 300 && chargerCoords.length >= 2) {{
+    for (let i = 1; i < chargerCoords.length; i++) {{
+        const [lat1, lon1] = chargerCoords[i - 1];
+        const [lat2, lon2] = chargerCoords[i];
+        const segKm = haversineKm(lat1, lon1, lat2, lon2);
+
+        if (segKm > 300) {{
+            // find this gap’s route indices
+            let startIdx = 0;
+            let endIdx = coords.length - 1;
+            let bestStart = Infinity;
+            let bestEnd = Infinity;
+
+            for (let j = 0; j < coords.length; j++) {{
+                const [lon, lat] = coords[j];
+                const d1 = haversineKm(lat, lon, lat1, lon1);
+                const d2 = haversineKm(lat, lon, lat2, lon2);
+                if (d1 < bestStart) {{ bestStart = d1; startIdx = j; }}
+                if (d2 < bestEnd) {{ bestEnd = d2; endIdx = j; }}
+            }}
+
+            if (startIdx > endIdx) {{
+                const tmp = startIdx; startIdx = endIdx; endIdx = tmp;
+            }}
+
+            const gapCoords = coords.slice(startIdx, endIdx + 1).map(c => [c[1], c[0]]);
+            if (gapCoords.length > 1) {{
+                const gapLine = L.polyline(gapCoords, {{
+                    color: 'red',
+                    weight: 2.5,
+                    opacity: 1.0
+                }});
+                gapLine.addTo(routeLayer);
+            }}
+        }}
+    }}
+}}
+
+          // --- Display route info and any warnings ---
+          if (msg) {{
+            msg.innerHTML = `Shortest route between origin and destination found: ${{totalKm.toLocaleString(undefined, {{maximumFractionDigits: 0}})}} km.<br>Chargers within {ROUTE_PROXIMITY_KM:.1f} km along the route are highlighted.`;
+            if (maxGap > 300) {{
+             msg.innerHTML += `<br><span style='color:red;'>⚠️Route includes section(s) with limited chargers within ${{PROX_KM.toFixed(1)}} km. <br> ⚠️Route includes a road stretch up to ${{maxGap.toLocaleString(undefined, {{maximumFractionDigits: 0}})}} km without coverage.</span>`;
+            }}
+          }}
+        }}
         document.getElementById('btn-find').addEventListener('click', doRoute);
         document.getElementById('btn-clear').addEventListener('click', function() {{
           routeLayer.clearLayers();
@@ -629,7 +750,7 @@ def build_map(df: pd.DataFrame, last_refresh: str, next_refresh: str):
 
     m.save(str(OUTPUT_HTML))
     print(f">> Map saved to {OUTPUT_HTML.resolve()}")
-
+       
 # ============================================================
 # 6) Main
 # ============================================================
@@ -670,7 +791,7 @@ def main():
         tz = timezone(timedelta(hours=10))
     now_local = datetime.now(tz)
     last_refresh = now_local.strftime("%d %b %Y %H:%M %Z")
-    next_refresh = (now_local + timedelta(hours=1)).strftime("%d %b %Y %H:%M %Z")
+    next_refresh = (now_local + timedelta(hours=24)).strftime("%d %b %Y %H:%M %Z")
 
     print(">> Building map...")
     build_map(df, last_refresh, next_refresh)

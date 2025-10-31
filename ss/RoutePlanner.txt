@@ -1,0 +1,64 @@
+# ============================================================
+# 4) ROUTE PLANNER AND GAP ALERT
+# ============================================================
+
+def add_route_planner(m: folium.Map):
+    # Front-end JavaScript for route search box
+    route_html = f"""
+    <div id='routePanel' style="position:absolute; top:80px; right:15px; z-index:9999;
+        background:white; padding:8px; border-radius:8px; box-shadow:0 0 6px rgba(0,0,0,0.3);
+        font-family:Arial; font-size:12px; width:250px;">
+      <b>Route planner</b><br>
+      Origin: <input type="text" id="origin" value="101 Collins Street, Melbourne, Victoria"
+          style="width:100%; margin-bottom:4px;"><br>
+      Destination: <input type="text" id="destination" value="152 St Georges Terrace, Perth, Western Australia"
+          style="width:100%; margin-bottom:4px;"><br>
+      <button onclick="findRoute()">Plot route</button>
+      <div id="routeMsg" style="margin-top:6px;"></div>
+    </div>
+
+    <script>
+    async function findRoute() {{
+        const origin = document.getElementById('origin').value;
+        const destination = document.getElementById('destination').value;
+        const msgBox = document.getElementById('routeMsg');
+        msgBox.innerHTML = "Finding route...";
+        try {{
+            const geo = async (q) => {{
+                const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${{encodeURIComponent(q + ", Australia")}}`);
+                const j = await r.json();
+                if (j.length === 0) throw "not found";
+                return [parseFloat(j[0].lat), parseFloat(j[0].lon), j[0].display_name];
+            }};
+            const [olat, olon, oname] = await geo(origin);
+            const [dlat, dlon, dname] = await geo(destination);
+
+            const routeURL = `https://router.project-osrm.org/route/v1/driving/${{olon}},${{olat}};${{dlon}},${{dlat}}?overview=full&geometries=geojson`;
+            const routeResp = await fetch(routeURL);
+            const routeData = await routeResp.json();
+            const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            const distance_km = routeData.routes[0].distance / 1000.0;
+            const routeLine = L.polyline(coords, {{color:'blue', weight:3.5}}).addTo(window.map);
+            window.map.fitBounds(routeLine.getBounds());
+            msgBox.innerHTML = `Found route.<br>Chargers within {ROUTE_PROXIMITY_KM} km highlighted.<br>Total route length: ${{
+                distance_km.toFixed(0)}} km`;
+
+            // detect longest gap without chargers
+            let maxGap = 0, lastIdx = 0;
+            for (let i = 1; i < coords.length; i++) {{
+                const [lat1, lon1] = coords[lastIdx];
+                const [lat2, lon2] = coords[i];
+                const dist = 111 * Math.sqrt(Math.pow(lat2-lat1,2) + Math.pow((lon2-lon1)*Math.cos((lat1+lat2)*Math.PI/360),2));
+                if (dist > {CHARGER_GAP_KM}) maxGap = Math.max(maxGap, dist);
+                lastIdx = i;
+            }}
+            if (maxGap > {CHARGER_GAP_KM}) {{
+                msgBox.innerHTML += `<br><span style='color:red;'>⚠️ Warning: this route includes a stretch of ~${{maxGap.toFixed(0)}} km with limited chargers.</span>`;
+            }}
+        }} catch (err) {{
+            msgBox.innerHTML = "Error finding route.";
+        }}
+    }}
+    </script>
+    """
+    m.get_root().html.add_child(folium.Element(route_html))

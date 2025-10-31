@@ -1,0 +1,52 @@
+async function doRoute() {{
+          const msg = document.getElementById('route-msg');
+          if (msg) msg.textContent = 'Finding route...';
+          const originTxt = originEl.value.trim();
+          const destTxt = destEl.value.trim();
+          if (!originTxt || !destTxt) {{ if (msg) msg.textContent = 'Please enter both origin and destination.'; return; }}
+
+          const o = await geocodeFirst(originTxt, 'o');
+          const d = await geocodeFirst(destTxt, 'd');
+          if (!o || !d) {{ if (msg) msg.textContent = 'Could not find one or both places. Try being more specific.'; return; }}
+
+          const url = `https://router.project-osrm.org/route/v1/driving/${{o.lon}},${{o.lat}};${{d.lon}},${{d.lat}}?overview=full&geometries=geojson`;
+          let geo = null;
+          try {{
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            if (!data.routes || !data.routes.length) throw new Error('No route');
+            geo = data.routes[0].geometry;
+            const totalKm = data.routes[0].distance / 1000.0;
+          }} catch(e) {{
+            console.warn('OSRM error', e);
+            if (msg) msg.textContent = 'Route unavailable. Try a nearby suburb or major city.';
+            return;
+          }}
+
+          routeLayer.clearLayers();
+          nearLayer.clearLayers();
+          if (nearHeat) {{ try {{ nearHeat.remove(); }} catch(e){{}} nearHeat = null; }}
+
+          const line = L.geoJSON(geo, {{ style: {{ color: '#2563eb', weight: {ROUTE_LINE_WEIGHT}, opacity: 0.85 }} }});
+          line.addTo(routeLayer);
+          mapRef.fitBounds(line.getBounds(), {{ padding: [24,24] }});
+
+          const coords = geo.coordinates;
+          const nearPts = [];
+          EV_POINTS.forEach(pt => {{
+            const dkm = minDistKm(pt.lat, pt.lon, coords);
+            if (dkm <= PROX_KM) nearPts.push([pt.lat, pt.lon]);
+            if (dkm <= PROX_KM) {{
+              const c = pt.fast ? '#2563eb' : '#22c55e';
+              const cm = L.circleMarker([pt.lat, pt.lon], {{ radius: 4, color: c, weight: 1.2, fill: true, fillColor: c, fillOpacity: 0.75 }});
+              cm.addTo(nearLayer);
+            }}
+          }});
+
+          if (nearPts.length && L.heatLayer) {{
+            nearHeat = L.heatLayer(nearPts, {{ radius: 18, blur: 22, maxZoom: 9, minOpacity: 0.25 }}).addTo(mapRef);
+          }}
+
+          if (msg) msg.textContent = `Found route. Chargers within {ROUTE_PROXIMITY_KM:.1f} km highlighted. Total route length: ${totalKm.toFixed(0)} km.`;
+        }}

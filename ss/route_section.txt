@@ -1,0 +1,20 @@
+const items = data.map(d => {{
+    // Split the display name into parts and clean common noise
+    const parts = d.display_name.split(',').map(p => p.trim());
+    // Remove trailing 'Australia' or any postcode numbers
+    const filtered = parts.filter(p => !/Australia/i.test(p) && !/^\d{4}$/.test(p));
+    // Take the first two meaningful entries: usually city and state
+    const label = filtered.slice(0, 2).join(', ');
+    return {{
+        label: label,
+        lat: parseFloat(d.lat),
+        lon: parseFloat(d.lon)
+    }};
+}});
+
+
+          const items = data.map(d => ({{
+                              label: d.display_name.split(',').slice(0, 3).join(','),
+                              lat: parseFloat(d.lat),
+                              lon: parseFloat(d.lon)
+                          }}));
