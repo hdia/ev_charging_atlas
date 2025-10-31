@@ -9,7 +9,11 @@ Built from open data using the **[Open Charge Map API](https://openchargemap.org
 
 ### 1. Repository setup
 Clone or fork this repository, ensuring it contains:
+<<<<<<< HEAD
 - `build_ev_monitor.py` (or the current Python build script)
+=======
+- `build_ev_atlas.py`
+>>>>>>> a8756f51f4c7aa5b5eb4c366cb83975710dccd55
 - `requirements.txt`
 - `.github/workflows/rebuild.yml`
 - `data/` and `outputs/` folders
