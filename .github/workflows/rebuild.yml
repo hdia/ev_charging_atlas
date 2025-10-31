@@ -1,16 +1,25 @@
-name: Rebuild EV Charging Monitor
+name: Rebuild and Deploy EV Charging Monitor
 
 on:
   schedule:
-    - cron: "0 3 * * *"   # Runs daily at 3:00 AM UTC
-  workflow_dispatch:      # Allow manual trigger
+    - cron: "0 3 * * *"   # every day at 3 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -23,16 +32,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run EV Charging Monitor script
+      - name: Build EV Charging Monitor
         env:
           OCM_API_KEY: ${{ secrets.OCM_API_KEY }}
         run: |
           python build_ev_atlas.py
 
-      - name: Commit updated map
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add outputs/index.html
-          git commit -m "Automated rebuild: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes to commit"
-          git push
+      - name: Upload artifact for deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: outputs
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
