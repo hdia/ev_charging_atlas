@@ -9,7 +9,7 @@ Built from open data using the **[Open Charge Map API](https://openchargemap.org
 
 ### 1. Repository setup
 Clone or fork this repository, ensuring it contains:
-- `20251031_build_ev_atlas_v6.py`
+- `build_ev_atlas.py`
 - `requirements.txt`
 - `.github/workflows/rebuild.yml`
 - `data/` and `outputs/` folders
